@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import {
   Dimensions,
   Linking,
+  PermissionsAndroid,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -89,26 +90,68 @@ export default function Dashboard() {
     }
   };
 
-  const startLiveData = async () => {
-    try {
-      await WifiManager.connectToSSID("ESP32_HOTSPOT", "12345678");
+  const requestLocationPermission = async () => {
+  if (Platform.OS !== "android") return true;
 
-      const interval = setInterval(async () => {
-        try {
-          const { data } = await axios.get("http://192.168.4.1/data");
-
-          setLiveData(data);
-          await storeTwoSecondsData(data);
-        } catch (err) {
-          console.log("Fetch error:", err);
-        }
-      }, 1000);
-
-      setLiveDataInterval(interval);
-    } catch (error) {
-      console.log("WiFi error:", error);
+  const granted = await PermissionsAndroid.request(
+    PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+    {
+      title: "Location Permission",
+      message: "This app needs location permission to connect to WiFi.",
+      buttonPositive: "OK",
     }
-  };
+  );
+
+  return granted === PermissionsAndroid.RESULTS.GRANTED;
+};
+
+const openWifiSettings = async () => {
+  try {
+    if (Platform.OS === "android") {
+      await Linking.sendIntent("android.settings.WIFI_SETTINGS");
+    } else {
+      await Linking.openSettings();
+    }
+  } catch (e) {
+    console.log("WiFi open error:", e);
+  }
+};
+
+const startLiveData = async () => {
+  try {
+    const hasPermission = await requestLocationPermission();
+
+    if (!hasPermission) {
+      console.log("Location permission denied");
+      return;
+    }
+
+    await WifiManager.connectToProtectedSSID(
+      "ESP32_HOTSPOT",
+      "12345678",
+      false,
+      false
+    );
+
+    const interval = setInterval(async () => {
+      try {
+        const { data } = await axios.get("http://192.168.4.1/data");
+        setLiveData(data);
+        await storeTwoSecondsData(data);
+      } catch (err) {
+        console.log("Fetch error:", err);
+      }
+    }, 1000);
+
+    setLiveDataInterval(interval);
+  } catch (error) {
+    console.log("WiFi error:", error);
+
+    if (String(error).includes("Location service is turned off")) {
+      await openLocationSettings();
+    }
+  }
+};
 
   const stopLiveData = () => {
     if (liveDataInterval) {
@@ -116,29 +159,33 @@ export default function Dashboard() {
       setLiveDataInterval(null);
     }
   };
-
   const handleWifiToggle = async () => {
-    const newState = !wifiOn;
-    setWifiOn(newState);
+  const newState = !wifiOn;
+  setWifiOn(newState);
 
+  if (newState) {
     try {
-      if (Platform.OS === "android") {
-        await Linking.openURL(
-          "intent:#Intent;action=android.settings.WIFI_SETTINGS;end",
-        );
-      } else {
-        await Linking.openSettings();
-      }
+      await startLiveData();
     } catch (e) {
-      console.log("WiFi open error:", e);
+      console.log("Start live data error:", e);
     }
-
-    if (newState) {
-      startLiveData();
-    } else {
+  } else {
+    stopLiveData();
+  }
+};
+const openLocationSettings = async () => {
+  try {
+    if (Platform.OS === "android") {
+      await Linking.sendIntent("android.settings.LOCATION_SOURCE_SETTINGS");
+      setWifiOn(false);
       stopLiveData();
+
     }
-  };
+  } catch (e) {
+    console.log("Location settings open error:", e);
+  }
+};
+
 
   const graphData = {
     labels: ["1", "2"],
