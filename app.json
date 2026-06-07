@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "smartsolar",
+    "name": "Smart Solar",
     "slug": "smartsolar",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -49,7 +49,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "70c0c7dd-29ce-4464-8b40-541c47996d17"
+        "projectId": "a5fe4656-0a81-432b-af38-b24d55df0c4f"
       }
     }
   }

@@ -1,17 +1,19 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Animated,
   Dimensions,
   Modal,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+
 import { LineChart } from "react-native-gifted-charts";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const screenWidth = Dimensions.get("window").width;
 
@@ -61,19 +63,19 @@ export default function Sensors() {
   // =========================
   // SPLIT CURRENT / PREVIOUS
   // =========================
-  const getSensorData = (key) => {
-    if (!storageData || storageData.length === 0) {
-      return { current: [0], previous: [0] };
-    }
+const getSensorData = (key) => {
+  if (!storageData || storageData.length === 0) {
+    return { current: [0], previous: [0] };
+  }
 
-    const values = storageData.map((d) => d?.[key] ?? 0);
-    const mid = Math.floor(values.length / 2);
+  const previousValue = storageData[0]?.[key] ?? 0;
+  const currentValue = storageData[storageData.length - 1]?.[key] ?? 0;
 
-    return {
-      current: values.slice(mid),
-      previous: values.slice(0, mid),
-    };
+  return {
+    previous: [previousValue],
+    current: [currentValue],
   };
+};
 
   const toLineData = (arr) =>
     arr.map((val, index) => ({
@@ -94,14 +96,19 @@ export default function Sensors() {
       useNativeDriver: true,
     }).start();
 
+    const modalData = selectedSensor
+  ? getSensorData(selectedSensor.key)
+  : { current: [0], previous: [0] };
+
   return (
     <View style={styles.container}>
       {/* =========================
           CARDS
       ========================= */}
+      <ScrollView>
       {sensors.map((s) => {
         const data = getSensorData(s.key);
-        const lastValue = data.current[data.current.length - 1] || 0;
+        const lastValue = data.current[0] || 0;
 
         return (
           <Animated.View
@@ -119,7 +126,8 @@ export default function Sensors() {
               activeOpacity={0.9}
               onPressIn={onPressIn}
               onPressOut={onPressOut}
-              onPress={() => setSelectedSensor({ ...s, ...data })}
+              // onPress={() => setSelectedSensor({ ...s, ...data })}
+              onPress={() => setSelectedSensor(s)}
               style={styles.sensorTouchable}
             >
               <View style={styles.cardHeader}>
@@ -154,6 +162,8 @@ export default function Sensors() {
           </Animated.View>
         );
       })}
+      </ScrollView>
+
 
       {/* =========================
           MODAL
@@ -187,14 +197,18 @@ export default function Sensors() {
 
                 <View style={styles.chartCard}>
                   <LineChart
-                    data={toLineData(selectedSensor.current)}
-                    data2={toLineData(selectedSensor.previous)}
+                    // data={toLineData(selectedSensor.previous)}
+                    // data2={toLineData(selectedSensor.current)}
+                      data={[
+                        { value: modalData.previous[0], label: "Previous", dataPointColor: "#3B82F6" },
+                        { value: modalData.current[0], label: "Current", dataPointColor: "#FACC15" },
+                      ]}
                     width={screenWidth * 0.6}
                     height={200}
                     curved
-                    color="#FACC15"
-                    color2="#3B82F6"
-                    hideDataPoints
+                    color="#3B82F6"
+                    color2="#FACC15"
+                    hideDataPoints={false}
                     thickness={3}
                     thickness2={3}
                   />
@@ -224,6 +238,7 @@ export default function Sensors() {
   );
 }
 
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -241,7 +256,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   sensorTouchable: {
-    flex: 1,
+    padding: 5
   },
   cardHeader: {
     flexDirection: 'row',
