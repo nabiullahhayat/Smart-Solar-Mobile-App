@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { LineChart } from "react-native-chart-kit";
 import Angle from "./Angle";
+import "./i18n";
 import Sensors from "./Sensors";
 import Setting from "./Setting";
 

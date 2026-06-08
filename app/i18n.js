@@ -12,61 +12,23 @@ const resources = {
   dr: { translation: dr },
 };
 
-const supportedLanguages = ["en", "ps", "dr"];
-
-const languageDetector = {
-  type: "languageDetector",
-  async: true,
-
-  detect: async (callback) => {
-    try {
-      const savedLanguage = await AsyncStorage.getItem("language");
-
-      if (savedLanguage && supportedLanguages.includes(savedLanguage)) {
-        callback(savedLanguage);
-      } else {
-        callback("en");
-      }
-    } catch (error) {
-      callback("en");
-    }
+i18n.use(initReactI18next).init({
+  resources,
+  lng: "en",
+  fallbackLng: "en",
+  compatibilityJSON: "v3",
+  interpolation: {
+    escapeValue: false,
   },
-
-  init: () => {},
-
-  cacheUserLanguage: async (lng) => {
-    try {
-      if (supportedLanguages.includes(lng)) {
-        await AsyncStorage.setItem("language", lng);
-      }
-    } catch (error) {
-      console.log("Language save error:", error);
-    }
+  react: {
+    useSuspense: false,
   },
-};
+});
 
-if (!i18n.isInitialized) {
-  i18n
-    .use(languageDetector)
-    .use(initReactI18next)
-    .init({
-      resources,
-      fallbackLng: "en",
-      supportedLngs: supportedLanguages,
-
-      compatibilityJSON: "v3",
-
-      returnNull: false,
-      returnEmptyString: false,
-
-      interpolation: {
-        escapeValue: false,
-      },
-
-      react: {
-        useSuspense: false,
-      },
-    });
-}
+AsyncStorage.getItem("language").then((lng) => {
+  if (lng && ["en", "ps", "dr"].includes(lng)) {
+    i18n.changeLanguage(lng);
+  }
+});
 
 export default i18n;

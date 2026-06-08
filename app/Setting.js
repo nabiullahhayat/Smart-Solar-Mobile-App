@@ -153,9 +153,18 @@ export default function Setting() {
                 currentLanguage === key &&
                   styles.langButtonActive,
               ]}
-              onPress={() =>
-                i18n.changeLanguage(key)
-              }
+              onPress={() =>{
+                try {
+                  
+                  i18n.changeLanguage(key)
+                } catch (error) {
+                  console.log(error.message);
+                  Alert.alert(
+                    "Faild",
+                    error.message
+                  );
+                }
+              }}
             >
               <Text
                 style={
