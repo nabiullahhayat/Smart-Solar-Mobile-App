@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
+
 import dr from "../translations/dr.json";
 import en from "../translations/en.json";
 import ps from "../translations/ps.json";
@@ -11,24 +12,22 @@ const resources = {
   dr: { translation: dr },
 };
 
-//  Detect platform safely
-const isWeb = typeof window !== "undefined";
+const supportedLanguages = ["en", "ps", "dr"];
 
-//  Proper async language detector
 const languageDetector = {
   type: "languageDetector",
   async: true,
 
   detect: async (callback) => {
     try {
-      if (isWeb) {
-        callback("en");
-        return;
-      }
-
       const savedLanguage = await AsyncStorage.getItem("language");
-      callback(savedLanguage || "en");
-    } catch (e) {
+
+      if (savedLanguage && supportedLanguages.includes(savedLanguage)) {
+        callback(savedLanguage);
+      } else {
+        callback("en");
+      }
+    } catch (error) {
       callback("en");
     }
   },
@@ -37,32 +36,37 @@ const languageDetector = {
 
   cacheUserLanguage: async (lng) => {
     try {
-      if (!isWeb) {
+      if (supportedLanguages.includes(lng)) {
         await AsyncStorage.setItem("language", lng);
       }
-    } catch (e) {
-      console.log("language save error", e);
+    } catch (error) {
+      console.log("Language save error:", error);
     }
   },
 };
 
-i18n
-  .use(languageDetector)
-  .use(initReactI18next)
-  .init({
-    resources,
-    fallbackLng: "en",
+if (!i18n.isInitialized) {
+  i18n
+    .use(languageDetector)
+    .use(initReactI18next)
+    .init({
+      resources,
+      fallbackLng: "en",
+      supportedLngs: supportedLanguages,
 
-    // 🔥 safer for Android + JSON parsing issues
-    compatibilityJSON: "v3",
+      compatibilityJSON: "v3",
 
-    interpolation: {
-      escapeValue: false,
-    },
+      returnNull: false,
+      returnEmptyString: false,
 
-    react: {
-      useSuspense: false,
-    },
-  });
+      interpolation: {
+        escapeValue: false,
+      },
+
+      react: {
+        useSuspense: false,
+      },
+    });
+}
 
 export default i18n;

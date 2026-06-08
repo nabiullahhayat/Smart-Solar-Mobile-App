@@ -1,6 +1,6 @@
 import React from "react";
+import "./app/i18n.js";
 import Dashboard from "./app/_layout";
-import "./app/i18n";
 
 export default function App() {
   return <Dashboard />;

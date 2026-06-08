@@ -7,7 +7,6 @@ import {
   Linking,
   PermissionsAndroid,
   Platform,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -21,6 +20,7 @@ import Setting from "./Setting";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
+import { SafeAreaView } from "react-native-safe-area-context";
 import WifiManager from "react-native-wifi-reborn";
 
 const screenWidth = Dimensions.get("window").width;
