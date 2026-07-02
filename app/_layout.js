@@ -2,8 +2,10 @@ import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  Alert,
   Dimensions,
   Linking,
+  PermissionsAndroid,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -89,26 +91,69 @@ export default function Dashboard() {
     }
   };
 
-  const startLiveData = async () => {
-    try {
-      await WifiManager.connectToSSID("ESP32_HOTSPOT", "12345678");
+  const requestLocationPermission = async () => {
+  if (Platform.OS !== "android") return true;
 
-      const interval = setInterval(async () => {
-        try {
-          const { data } = await axios.get("http://192.168.4.1/data");
-
-          setLiveData(data);
-          await storeTwoSecondsData(data);
-        } catch (err) {
-          console.log("Fetch error:", err);
-        }
-      }, 1000);
-
-      setLiveDataInterval(interval);
-    } catch (error) {
-      console.log("WiFi error:", error);
+  const granted = await PermissionsAndroid.request(
+    PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+    {
+      title: "Location Permission",
+      message: "This app needs location permission to connect to WiFi.",
+      buttonPositive: "OK",
     }
-  };
+  );
+
+  return granted === PermissionsAndroid.RESULTS.GRANTED;
+};
+
+const openWifiSettings = async () => {
+  try {
+    if (Platform.OS === "android") {
+      await Linking.sendIntent("android.settings.WIFI_SETTINGS");
+    } else {
+      await Linking.openURL("App-Prefs:WIFI");
+    }
+  } catch (e) {
+    console.log("WiFi open error:", e);
+    await Linking.openSettings();
+  }
+};
+
+const startLiveData = async () => {
+  try {
+    const hasPermission = await requestLocationPermission();
+
+    if (!hasPermission) {
+      console.log("Location permission denied");
+      return;
+    }
+
+    // await WifiManager.connectToProtectedSSID(
+    //   "ESP32_HOTSPOT",
+    //   "solar1234",
+    //   false,
+    //   false
+    // );
+
+    const interval = setInterval(async () => {
+      try {
+        const { data } = await axios.get("http://192.168.4.1/data");
+        setLiveData(data);
+        await storeTwoSecondsData(data);
+      } catch (err) {
+        console.log("Fetch error:", err);
+      }
+    }, 1000);
+
+    setLiveDataInterval(interval);
+  } catch (error) {
+    console.log("WiFi error:", error);
+
+    if (String(error).includes("Location service is turned off")) {
+      await openLocationSettings();
+    }
+  }
+};
 
   const stopLiveData = () => {
     if (liveDataInterval) {
@@ -116,29 +161,45 @@ export default function Dashboard() {
       setLiveDataInterval(null);
     }
   };
-
   const handleWifiToggle = async () => {
     const newState = !wifiOn;
-    setWifiOn(newState);
 
     try {
-      if (Platform.OS === "android") {
-        await Linking.openURL(
-          "intent:#Intent;action=android.settings.WIFI_SETTINGS;end",
-        );
-      } else {
-        await Linking.openSettings();
-      }
-    } catch (e) {
-      console.log("WiFi open error:", e);
-    }
+
 
     if (newState) {
-      startLiveData();
+      const isEnabled = await WifiManager.isEnabled();
+
+      if (isEnabled) {
+        setWifiOn(true);
+        await startLiveData();
+      } else {
+        setWifiOn(false);
+        await openWifiSettings();
+      }
     } else {
+      setWifiOn(false);
       stopLiveData();
     }
-  };
+        
+    } catch (error) {
+      Alert.alert("Press The wifi button again and allow location permission to connect to the device.");
+      console.log("WiFi toggle error:", error);
+    }
+  }
+const openLocationSettings = async () => {
+  try {
+    if (Platform.OS === "android") {
+      await Linking.sendIntent("android.settings.LOCATION_SOURCE_SETTINGS");
+      setWifiOn(false);
+      stopLiveData();
+
+    }
+  } catch (e) {
+    console.log("Location settings open error:", e);
+  }
+};
+
 
   const graphData = {
     labels: ["1", "2"],
@@ -200,20 +261,33 @@ export default function Dashboard() {
 
           {/* CHART */}
           <View style={styles.chartCard}>
-            <LineChart
-              data={graphData}
-              width={screenWidth - 32}
-              height={300}
-              chartConfig={{
-                backgroundGradientFrom: "#0B1220",
-                backgroundGradientTo: "#0B1220",
-                color: () => "#fff",
-                labelColor: () => "#94A3B8",
-                propsForDots: { r: "0" },
-              }}
-              bezier
-              withDots={false}
-            />
+<LineChart
+  data={graphData}
+  width={screenWidth - 32}
+  height={300}
+  bezier
+  withDots={true}
+  withInnerLines={true}
+  withOuterLines={true}
+  chartConfig={{
+    backgroundGradientFrom: "#0B1220",
+    backgroundGradientTo: "#0B1220",
+    decimalPlaces: 0,
+
+    color: (opacity = 1) => `rgba(255,255,255,${opacity})`,
+    labelColor: () => "#94A3B8",
+
+    propsForDots: {
+      r: "6",
+      strokeWidth: "2",
+      stroke: "#fff",
+    },
+  }}
+  getDotColor={(dataPoint, index) => {
+    if (index === 0) return "#FF6384"; // previous
+    return "#22C55E"; // current
+  }}
+/>
           </View>
         </ScrollView>
       )}
